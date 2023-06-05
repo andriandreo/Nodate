@@ -4,7 +4,7 @@
 #include <usart.h>
 #include <timer.h>
 #include <io.h>
-
+#include <cstdio> // Including it explicitly is needed for some reason. For printf().
 
 void uartCallback(char ch) {
 	printf("That tickles!\n");
