@@ -13,8 +13,8 @@
 
 #include <functional>
 
-// The ADC preprocessor definition from CMSIS exists for legacy purposes. Here we undefine it
-// if it's defined so that we can reuse it.
+// The ADC preprocessor definition from CMSIS exists for legacy purposes. 
+// Here we undefine it if it's defined so that we can reuse it.
 #ifdef ADC
 #undef ADC
 #endif
