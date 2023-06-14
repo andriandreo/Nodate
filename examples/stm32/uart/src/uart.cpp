@@ -26,9 +26,9 @@ int main () {
 	//USART::startUart(USART_1, GPIO_PORT_A, 9, 1, GPIO_PORT_A, 10, 1, 9600, uartCallback);
 	// USART 1, (TX) PB6:0 [D5], (RX) PB7:0 [D4].
 	//USART::startUart(USART_1, GPIO_PORT_B, 6, 0, GPIO_PORT_B, 7, 0, 9600, uartCallback);
-	// Blue Pill (STM32F103): USART1 (TX: PB6 (AF0), RX: PB7 (AF0)).
-	// USART 1, (TX) PB6:0, (RX) PB7:0.
-	USART::startUart(USART_1, GPIO_PORT_B, 6, 0, GPIO_PORT_B, 7, 0, 9600, uartCallback);
+	// Blue Pill (STM32F103): USART1 (TX: PA9 (AF0), RX: PA10 (AF0)).
+	// USART 1, (TX) PA9:0, (RX) PA10:0.
+	USART::startUart(USART_1, GPIO_PORT_A, 9, 0, GPIO_PORT_A, 10, 0, 9600, uartCallback);
 	
 	//const uint8_t led_pin = 3; // Nucleo-f042k6: Port B, pin 3.
 	//const GPIO_ports led_port = GPIO_PORT_B;
