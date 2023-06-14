@@ -91,7 +91,7 @@ int main() {
 
 	//ADC1->CR2 |= 1;	// Start ADC conversion (ADON bit RE-set – Ref. Manual) for Debug Cal.
 
-	//timer.delay(1); // Wait for (1 ms – more than) `tSTAB` (ADC startup time) – Ref. Manual, 11.12.3. NOT NEEDED [!!!]
+	//timer.delay(1); // Wait for (1 ms – more than) `tSTAB` (ADC startup time) – Ref. Manual, 11.12.3.
 
 	//	OR consider `SWSTART` bit (ADC_CR2_SWSTART) to start conversion (Ref. Manual, 11.12.3).
 	//ADC1->CR2 |= ADC_CR2_EXTSEL;
@@ -105,7 +105,6 @@ int main() {
 	
 	Timer timer;
 	while (1) {
-		
 		timer.delay(5000);
 	
 		//	printf("ADC1->SR: %d.\n", ADC1->SR); // DEBUG: Check for EOC bit (end of conversion).
@@ -115,7 +114,9 @@ int main() {
 		if (!ADC::startSampling(ADC_1)) {
 			printf("ADC start sampling failed.\n");
 			while (1) { }
-		}// vs. already done above (uncomment) by {RE-SETTING ADON bit} vs. {SWSTART}. 
+		}// vs. already done above (uncomment) by {RE-SETTING ADON bit} vs. {SWSTART}.
+
+		timer.delay(1); // Wait for conversion time (tweak)
 		
 		// 4. Get the sampled value.
 		//uint16_t raw = ADC1->DR;
