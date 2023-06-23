@@ -176,7 +176,7 @@ ifneq (, $(findstring ssd1306, $(NODATE_LIBRARIES)))
 endif
 
 ifneq (, $(findstring bme280, $(NODATE_LIBRARIES)))
-	NODATE_SSD1306 = 1
+	NODATE_BME280 = 1
 	LIB_INCLUDES += -I $(TOP)/$(NDLANGUAGE)/libs/bme280 \
 			-I $(TOP)/$(NDLANGUAGE)/libs/bme280
 	LIB_CPP_SRC += $(wildcard arch/stm32/$(NDLANGUAGE)/libs/bme280/*.cpp)
@@ -191,6 +191,15 @@ ifneq (, $(findstring st7735, $(NODATE_LIBRARIES)))
 	LIB_CPP_SRC += $(wildcard arch/stm32/$(NDLANGUAGE)/libs/st7735/*.cpp)
 	
 	LIB_MKDIRS += $(MAKEDIR) $(APPFOLDER)/obj/arch/stm32/$(NDLANGUAGE)/libs/st7735
+endif
+
+ifneq (, $(findstring ADS1115, $(NODATE_LIBRARIES)))
+	NODATE_ADS1115 = 1
+	LIB_INCLUDES += -I $(TOP)/$(NDLANGUAGE)/libs/ADS1115 \
+			-I $(TOP)/$(NDLANGUAGE)/libs/ADS1115
+	LIB_CPP_SRC += $(wildcard arch/stm32/$(NDLANGUAGE)/libs/ADS1115/*.cpp)
+	
+	LIB_MKDIRS += $(MAKEDIR) $(APPFOLDER)/obj/arch/stm32/$(NDLANGUAGE)/libs/ADS1115
 endif
 
 
