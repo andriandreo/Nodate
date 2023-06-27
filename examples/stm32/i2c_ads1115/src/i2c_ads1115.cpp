@@ -55,18 +55,18 @@ int main () {
 	IO::setStdOutTarget(USART_1);
 	
 	printf("Starting I2C ADS1115 example...\n");
-	char ch = 's';
+	char ch = 'S';
 	USART::sendUart(USART_1, ch);
-
+	
 //	GPIO::set_output(GPIO_PORT_B, 6, GPIO_FLOATING); // DEBUG
 //		printf("RCC->APB2ENR: %d.\n", RCC->APB2ENR); // DEBUG: USART, IOPA (USART I/O pins), IOPB (I2C1 pins) and IOPC (PC13 LED pin) bits set? – AFIO not needed if no USART port is remapped.
 
 	
-	// Start I2C. [!!!]
+	// Start I2C.
 	// Nucleo-F042K6: I2C_1, SCL -> PA11:5, SDA -> PA12:5.
 	// Blue Pill: I2C_1, SCL -> PB6:0, SDA -> PB7:0.
 	if (!I2C::startI2C(I2C_1, GPIO_PORT_B, 6, 0, GPIO_PORT_B, 7, 0)) {
-		ch = 'f';
+		ch = 'p';
 		USART::sendUart(USART_1, ch);
 		while (1) { }
 	}
@@ -84,12 +84,12 @@ int main () {
 	// Start I2C in master mode.
 	// Use Fast Mode. The ADS1115 ADC supports this and slower speeds.
 	if (!I2C::startMaster(I2C_1, I2C_MODE_FM, i2cCallback)) {
-		ch = 'g';
+		ch = 'm';
 		USART::sendUart(USART_1, ch);
 		while (1) { }
 	}
 	
-	ch = 'r';
+	ch = 'R';
 	USART::sendUart(USART_1, ch);
 	//printf("I2C1->CR1: %d.\n", I2C1->CR1); // DEBUG
 	//printf("I2C1->CR2: %d.\n", I2C1->CR2); // DEBUG
@@ -103,46 +103,45 @@ int main () {
 	adc.initialize();
 
 	if (!adc.isReady()) {
-		ch = 'f';
+		ch = 'n';
 		USART::sendUart(USART_1, ch);
 		while (1) { }
 	}
 	
-	ch = 'i';
+	ch = 'R';
 	USART::sendUart(USART_1, ch);
-	
-	// Read and print out ADC ID. [!!!]
-	//uint8_t id = 0;
-	//if (!adc.readID(id)) {
-	//	printf("Error reading ID.\n");
-	//	
-	//	while (1) { }
-	//}
-	//
-	//GPIO::write(led_port, led_pin, GPIO_LEVEL_HIGH);
-	//printf("ADC ID: %d\n", id);
-	//
-	//if (id == 0x60) {
-	//	printf("Matches ADS1115 ID.\n");
-	//}
 	
 	Timer timer;
 	timer.delay(1000);
 	
-	// Initialize the ADC IC. [!!!]
+	// Initialize the ADC IC.
 	// This fetches the calibration factors from the ADC device.
 	if (!adc.initialize()) {
 		printf("ADC init failed!\n");
 		while (1) { }
 	}
+
+	// Read and print out ADC Config (DEBUG).
+	//uint16_t config = 0;
+	//config = adc.showConfigRegister();
+	//
+	//GPIO::write(led_port, led_pin, GPIO_LEVEL_HIGH);
+	//printf("ADC Config.: %d\n\r", config);
+	//
+	//if (config == ADS1115_DEFAULT_CONFIG || config == ADS1115_DEFAULT_CONFIG2) {
+	//	printf("Matches ADS1115 default config.\n\r");
+	//}
 	
 	timer.delay(2000);
 	
-	ch = 'c';
+	ch = 'C';
 	USART::sendUart(USART_1, ch);
 	
 	while (1){
+	GPIO::write(led_port, led_pin, GPIO_LEVEL_HIGH);
 	// Get raw temperature.
+	timer.delay(500);
+	GPIO::write(led_port, led_pin, GPIO_LEVEL_LOW);
 	int16_t raw;
 	if (!adc.getConversion(raw)) {
 		printf("Reading raw conversion failed.\n");
@@ -160,15 +159,7 @@ int main () {
 	}
 	
 	printf("Voltage: %d mV.\n\r", mV);
-
-	timer.delay(1000);
-
-	}
-	
-	//printf("Done.\n");
-	
-	while(1) {
-		//
+	timer.delay(500);
 	}
 	
 	return 0;
