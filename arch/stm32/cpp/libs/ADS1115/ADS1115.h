@@ -5,6 +5,8 @@
 // Updates should (hopefully) always be available at https://github.com/jrowberg/i2cdevlib
 //
 // Changelog:
+//     2023-06-27 - Implementation for `Nodate` framework, andriandreo
+// 
 //     2013-05-05 - Add debug information.  Clean up Single Shot implementation
 //     2011-10-29 - added getDifferentialx() methods, F. Farzanegan
 //     2011-08-02 - initial release
@@ -37,12 +39,10 @@ THE SOFTWARE.
 #ifndef _ADS1115_H_
 #define _ADS1115_H_
 
-#include <nodate.h>
+// 1000ms default read timeout (modify with "I2Cdev::readTimeout = [ms];")
+#define I2CDEV_DEFAULT_READ_TIMEOUT     1000
 
-// -----------------------------------------------------------------------------
-// Arduino-style "Serial.print" debug constant (uncomment to enable)
-// -----------------------------------------------------------------------------
-//#define ADS1115_SERIAL_DEBUG
+#include <nodate.h>
 
 #define ADS1115_ADDRESS_ADDR_GND    0x48 // address pin low (GND)
 #define ADS1115_ADDRESS_ADDR_VDD    0x49 // address pin high (VCC)
@@ -68,6 +68,8 @@ THE SOFTWARE.
 #define ADS1115_CFG_COMP_LAT_BIT    2
 #define ADS1115_CFG_COMP_QUE_BIT    1
 #define ADS1115_CFG_COMP_QUE_LENGTH 2
+#define ADS1115_DEFAULT_CONFIG      0x8483 // 0b1000010010000011
+#define ADS1115_DEFAULT_CONFIG2     0x483 // 0b0000010010000011
 
 
 #define ADS1115_MUX_P0_N1           0x00 // default
@@ -123,11 +125,6 @@ THE SOFTWARE.
 #define ADS1115_COMP_QUE_ASSERT4    0x02
 #define ADS1115_COMP_QUE_DISABLE    0x03 // default
 
-// -----------------------------------------------------------------------------
-// Arduino-style "Serial.print" debug constant (uncomment to enable)
-// -----------------------------------------------------------------------------
-//#define ADS1115_SERIAL_DEBUG
-
 
 class ADS1115 {
 	I2C_devices i2c_device;
@@ -142,11 +139,12 @@ class ADS1115 {
         bool initialize();
         bool testConnection();
 
+        bool setRegister(uint8_t reg);
+
         bool getConversion(int16_t &rawV);
         bool voltage(int16_t &mV);
 
 	    bool send(uint8_t* data, uint16_t len);
-	    bool write(uint8_t* data, uint16_t len);
 	    bool receive(uint8_t* data, uint16_t len);
 	    bool transceive(uint8_t* txdata, uint16_t txlen, uint8_t* rxdata, uint16_t rxlen);
 
@@ -170,8 +168,8 @@ class ADS1115 {
         int16_t getConversionP3GND();
 
         // Utility
-        float getMilliVolts(bool triggerAndPoll=true);
-        float getMvPerCount();
+        float getMilliVolts(bool triggerAndPoll=true); // NEED `float` library [!!!]
+        float getMvPerCount(); // NEED `float` library [!!!]
 
         // CONFIG register
         bool isConversionReady();
@@ -200,11 +198,11 @@ class ADS1115 {
         void setHighThreshold(int16_t threshold);
 
         // DEBUG
-        void showConfigRegister();
+        uint16_t showConfigRegister();
 
     private:
         uint8_t devAddr;
-        uint16_t buffer[2]; // [!!!]
+        uint8_t buffer[2];
         bool    devMode; 
         uint8_t muxMode;
         uint8_t pgaMode;
