@@ -121,13 +121,27 @@ int main () {
 		while (1) { }
 	}
 
-	// Read and print out ADC Config (DEBUG).
+	if (!adc.testConnection()) {
+		printf("ADC connection failed!\n");
+		while (1) { }
+	}
+
+	adc.setMode(ADS1115_MODE_CONTINUOUS);
+
+	//--- DEBUG ---
+	// Read and print out ADC Config.
+	//printf("\rMUX settings: %d.\n\r", adc.getMultiplexer());
+	//printf("PGA settings: %d.\n\r", adc.getGain());
+	//printf("Mode settings: %d.\n\r", adc.getMode());
+	//printf("Rate settings: %d.\n\r", adc.getRate());
+	//printf("Comparator settings: %d.\n\r", adc.getComparatorMode());
+	//printf("Comparator polarity settings: %d.\n\r", adc.getComparatorPolarity());
+	//printf("Comparator latch settings: %d.\n\r", adc.getComparatorLatchEnabled());
+	//printf("Comparator queue settings: %d.\n\r", adc.getComparatorQueueMode());
 	//uint16_t config = 0;
 	//config = adc.showConfigRegister();
-	//
 	//GPIO::write(led_port, led_pin, GPIO_LEVEL_HIGH);
 	//printf("ADC Config.: %d\n\r", config);
-	//
 	//if (config == ADS1115_DEFAULT_CONFIG || config == ADS1115_DEFAULT_CONFIG2) {
 	//	printf("Matches ADS1115 default config.\n\r");
 	//}
@@ -149,6 +163,7 @@ int main () {
 	}
 	
 	printf("Raw conv.: %d.  ", raw);
+	//printf("Raw conv. vanilla: %d.  ", adc.getConversion());
 	
 	
 	// Read voltage.
