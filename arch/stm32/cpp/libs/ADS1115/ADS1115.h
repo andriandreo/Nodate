@@ -5,6 +5,7 @@
 // Updates should (hopefully) always be available at https://github.com/jrowberg/i2cdevlib
 //
 // Changelog:
+//     2023-06-28 - Fix functionality bugs (`Nodate` framework), andriandreo
 //     2023-06-27 - Implementation for `Nodate` framework, andriandreo
 // 
 //     2013-05-05 - Add debug information.  Clean up Single Shot implementation
@@ -68,8 +69,8 @@ THE SOFTWARE.
 #define ADS1115_CFG_COMP_LAT_BIT    2
 #define ADS1115_CFG_COMP_QUE_BIT    1
 #define ADS1115_CFG_COMP_QUE_LENGTH 2
-#define ADS1115_DEFAULT_CONFIG      0x8483 // 0b1000010010000011
-#define ADS1115_DEFAULT_CONFIG2     0x483 // 0b0000010010000011
+#define ADS1115_DEFAULT_CONFIG      0x8583 // 0b1000010110000011
+#define ADS1115_DEFAULT_CONFIG2     0x583 // 0b0000010110000011
 
 
 #define ADS1115_MUX_P0_N1           0x00 // default
@@ -144,8 +145,8 @@ class ADS1115 {
         bool getConversion(int16_t &rawV);
         bool voltage(int16_t &mV);
 
-	    bool send(uint8_t* data, uint16_t len);
-	    bool receive(uint8_t* data, uint16_t len);
+	    bool send(uint8_t* data);
+	    bool receive(uint8_t* data);
 	    bool transceive(uint8_t* txdata, uint16_t txlen, uint8_t* rxdata, uint16_t rxlen);
 
         // SINGLE SHOT utilities
@@ -202,6 +203,7 @@ class ADS1115 {
 
     private:
         uint8_t devAddr;
+        uint8_t reg;
         uint8_t buffer[2];
         bool    devMode; 
         uint8_t muxMode;

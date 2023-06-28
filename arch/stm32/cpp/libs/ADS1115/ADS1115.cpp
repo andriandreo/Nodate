@@ -5,6 +5,7 @@
 // Updates should (hopefully) always be available at https://github.com/jrowberg/I2Clib
 //
 // Changelog:
+//     2023-06-28 - Fix functionality bugs (`Nodate` framework), andriandreo
 //     2023-06-27 - Implementation for `Nodate` framework, andriandreo
 //
 //     2013-05-05 - Add debug information.  Rename methods to match datasheet.
@@ -84,10 +85,10 @@ bool ADS1115::initialize() {
     // QUICKSTART EXAMPLE – DATASHEET
     //uint8_t data[3];
     //data[0] = 0x01;
-    //data[1] = 0x84; //Differential: 0P - 1N.
-    // //data[1] = 0xC4; //Single-ended: 0P - GND. 
+    //data[1] = 0x84; //Differential: 0P - 1N. Continuous conversion mode.
+    // //data[1] = 0xC4; //Single-ended: 0P - GND. Continuous conversion mode.
     //data[2] = 0x83;
-    //if (!send(data, 3)) { return false; }
+    //if (!send(data)) { return false; }
 
   return true;
 }
@@ -97,8 +98,8 @@ bool ADS1115::initialize() {
  * @return True if connection is valid, false otherwise
  */
 bool ADS1115::testConnection() {
-    setRegister(ADS1115_RA_CONVERSION);
-    return receive(buffer, 2) == 1;
+    reg = ADS1115_RA_CONVERSION;
+    return receive(buffer) == 1;
 }
 
 /** Poll the operational status bit until the conversion is finished
@@ -156,8 +157,8 @@ int16_t ADS1115::getConversion(bool triggerAndPoll) {
       triggerConversion();
       pollConversion(I2CDEV_DEFAULT_READ_TIMEOUT);
     }
-    setRegister(ADS1115_RA_CONVERSION);
-    receive(buffer, 2);
+    reg = ADS1115_RA_CONVERSION;
+    receive(buffer);
     return static_cast<int16_t>((buffer[0] << 8) | buffer[1]);
 }
 /** Get AIN0/N1 differential.
@@ -329,9 +330,10 @@ float ADS1115::getMvPerCount() { // NEED `float` library [!!!]
  * @see ADS1115_CFG_OS_BIT
  */
 bool ADS1115::isConversionReady() {
-    setRegister(ADS1115_RA_CONFIG);
-    if (!receive(buffer,1)){ return false; }
-    buffer [0] &= (1 << ADS1115_CFG_OS_BIT);
+    reg = ADS1115_RA_CONFIG;
+    if (!receive(buffer)){ return false; }
+    buffer[0] &= (1 << (ADS1115_CFG_OS_BIT - 8));
+    buffer[0] = buffer[0] >> (ADS1115_CFG_OS_BIT - 8);
     return buffer[0];
 }
 /** Trigger a new conversion.
@@ -340,9 +342,10 @@ bool ADS1115::isConversionReady() {
  * @see ADS1115_CFG_OS_BIT
  */
 void ADS1115::triggerConversion() {
-    setRegister(ADS1115_RA_CONFIG);
-    buffer [0] = (1 << ADS1115_CFG_OS_BIT);
-    send(buffer, 1);
+    reg = ADS1115_RA_CONFIG;
+    receive(buffer);
+    buffer [0] |= (1 << (ADS1115_CFG_OS_BIT - 8));
+    send(buffer);
 }
 /** Get multiplexer connection.
  * @return Current multiplexer connection setting
@@ -351,10 +354,10 @@ void ADS1115::triggerConversion() {
  * @see ADS1115_CFG_MUX_LENGTH
  */
 uint8_t ADS1115::getMultiplexer() {
-    setRegister(ADS1115_RA_CONFIG);
-    receive(buffer, 1);
-    buffer[0] &= (0x07 << (ADS1115_CFG_MUX_BIT - ADS1115_CFG_MUX_LENGTH)); // TODO: REWORK using functions below [!!!]
-    buffer[0] = buffer[0] >> (ADS1115_CFG_MUX_BIT - ADS1115_CFG_MUX_LENGTH + 1); // TODO: REWORK using functions below [!!!]
+    reg = ADS1115_RA_CONFIG;
+    receive(buffer);
+    buffer[0] &= (0x07 << (ADS1115_CFG_MUX_BIT - ADS1115_CFG_MUX_LENGTH + 1 - 8)); // TODO: REWORK using functions below [!!!]
+    buffer[0] = buffer[0] >> (ADS1115_CFG_MUX_BIT - ADS1115_CFG_MUX_LENGTH + 1 - 8); // TODO: REWORK using functions below [!!!]
     muxMode = (uint8_t)buffer[0];
     return muxMode;
 }
@@ -375,9 +378,13 @@ uint8_t ADS1115::getMultiplexer() {
  * @see ADS1115_CFG_MUX_LENGTH
  */
 void ADS1115::setMultiplexer(uint8_t mux) {
-    setRegister(ADS1115_RA_CONFIG);
-    buffer[0] = (mux << (ADS1115_CFG_MUX_BIT - ADS1115_CFG_MUX_LENGTH));
-    if (send(buffer,1)) {
+    reg = ADS1115_RA_CONFIG;
+    // Clear bits
+    receive(buffer);
+    buffer[0] &= ~(0x07 << (ADS1115_CFG_MUX_BIT - ADS1115_CFG_MUX_LENGTH + 1 - 8)); // TODO: REWORK using functions below [!!!]
+    // Set bits
+    buffer[0] |= (mux << (ADS1115_CFG_MUX_BIT - ADS1115_CFG_MUX_LENGTH + 1 - 8));
+    if (send(buffer)) {
         muxMode = mux;
         if (devMode == ADS1115_MODE_CONTINUOUS) {
           // Force a stop/start
@@ -394,10 +401,10 @@ void ADS1115::setMultiplexer(uint8_t mux) {
  * @see ADS1115_CFG_PGA_LENGTH
  */
 uint8_t ADS1115::getGain() {
-    setRegister(ADS1115_RA_CONFIG);
-    receive(buffer, 1);
-    buffer[0] &= (0x07 << (ADS1115_CFG_PGA_BIT - ADS1115_CFG_PGA_LENGTH)); // TODO: REWORK using functions below [!!!]
-    buffer[0] = buffer[0] >> (ADS1115_CFG_PGA_BIT - ADS1115_CFG_PGA_LENGTH + 1); // TODO: REWORK using functions below [!!!]
+    reg = ADS1115_RA_CONFIG;
+    receive(buffer);
+    buffer[0] &= (0x07 << (ADS1115_CFG_PGA_BIT - ADS1115_CFG_PGA_LENGTH + 1 - 8)); // TODO: REWORK using functions below [!!!]
+    buffer[0] = buffer[0] >> (ADS1115_CFG_PGA_BIT - ADS1115_CFG_PGA_LENGTH + 1 - 8); // TODO: REWORK using functions below [!!!]
     pgaMode=(uint8_t)buffer[0];
     return pgaMode;
 }
@@ -417,9 +424,13 @@ uint8_t ADS1115::getGain() {
  * @see ADS1115_CFG_PGA_LENGTH
  */
 void ADS1115::setGain(uint8_t gain) {
-    setRegister(ADS1115_RA_CONFIG);
-    buffer[0] = (gain << (ADS1115_CFG_PGA_BIT - ADS1115_CFG_PGA_LENGTH));
-    if (send(buffer, 1)) {
+    reg = ADS1115_RA_CONFIG;
+    // Clear bits
+    receive(buffer);
+    buffer[0] &= ~(0x07 << (ADS1115_CFG_PGA_BIT - ADS1115_CFG_PGA_LENGTH + 1 - 8)); // TODO: REWORK using functions below [!!!]
+    // Set bits
+    buffer[0] |= (gain << (ADS1115_CFG_PGA_BIT - ADS1115_CFG_PGA_LENGTH + 1 - 8));
+    if (send(buffer)) {
         pgaMode = gain;
          if (devMode == ADS1115_MODE_CONTINUOUS) {
             // Force a stop/start
@@ -437,10 +448,10 @@ void ADS1115::setGain(uint8_t gain) {
  * @see ADS1115_CFG_MODE_BIT
  */
 bool ADS1115::getMode() {
-    setRegister(ADS1115_RA_CONFIG);
-    receive(buffer, 1);
-    buffer[0] &= (1 << ADS1115_CFG_MODE_BIT); // TODO: REWORK using functions below [!!!]
-    buffer[0] = buffer[0] >> (ADS1115_CFG_MODE_BIT); // TODO: REWORK using functions below [!!!]
+    reg = ADS1115_RA_CONFIG;
+    receive(buffer);
+    buffer[0] &= (1 << (ADS1115_CFG_MODE_BIT - 8)); // TODO: REWORK using functions below [!!!]
+    buffer[0] = buffer[0] >> (ADS1115_CFG_MODE_BIT - 8); // TODO: REWORK using functions below [!!!]
     devMode = buffer[0];
     return devMode;
 }
@@ -452,9 +463,13 @@ bool ADS1115::getMode() {
  * @see ADS1115_CFG_MODE_BIT
  */
 void ADS1115::setMode(bool mode) {
-    setRegister(ADS1115_RA_CONFIG);
-    buffer[0] = (mode << ADS1115_CFG_MODE_BIT);
-    if(send(buffer, 1)){
+    reg = ADS1115_RA_CONFIG;
+    // Clear bit
+    receive(buffer);
+    buffer[0] &= ~(1 << (ADS1115_CFG_MODE_BIT - 8)); // TODO: REWORK using functions below [!!!]
+    // Set bit
+    buffer[0] |= (mode << (ADS1115_CFG_MODE_BIT - 8));
+    if(send(buffer)){
         devMode = mode;
     }
 }
@@ -465,11 +480,11 @@ void ADS1115::setMode(bool mode) {
  * @see ADS1115_CFG_DR_LENGTH
  */
 uint8_t ADS1115::getRate() {
-    setRegister(ADS1115_RA_CONFIG);
-    receive(buffer, 1);
-    buffer[0] &= (0x07 << (ADS1115_CFG_DR_BIT - ADS1115_CFG_DR_LENGTH)); // TODO: REWORK using functions below [!!!]
-    buffer[0] = buffer[0] >> (ADS1115_CFG_DR_BIT - ADS1115_CFG_DR_LENGTH + 1); // TODO: REWORK using functions below [!!!]
-    return (uint8_t)buffer[0];
+    reg = ADS1115_RA_CONFIG;
+    receive(buffer);
+    buffer[1] &= (0x07 << (ADS1115_CFG_DR_BIT - ADS1115_CFG_DR_LENGTH + 1)); // TODO: REWORK using functions below [!!!]
+    buffer[1] = buffer[1] >> (ADS1115_CFG_DR_BIT - ADS1115_CFG_DR_LENGTH + 1); // TODO: REWORK using functions below [!!!]
+    return (uint8_t)buffer[1];
 }
 /** Set data rate.
  * @param rate New data rate
@@ -486,9 +501,13 @@ uint8_t ADS1115::getRate() {
  * @see ADS1115_CFG_DR_LENGTH
  */
 void ADS1115::setRate(uint8_t rate) {
-    setRegister(ADS1115_RA_CONFIG);
-    buffer[0] = (rate << (ADS1115_CFG_DR_BIT - ADS1115_CFG_DR_LENGTH));
-    send(buffer, 1);
+    reg = ADS1115_RA_CONFIG;
+    // Clear bits
+    receive(buffer);
+    buffer[1] &= ~(0x07 << (ADS1115_CFG_DR_BIT - ADS1115_CFG_DR_LENGTH + 1)); // TODO: REWORK using functions below [!!!]
+    // Set bits
+    buffer[1] |= (rate << (ADS1115_CFG_DR_BIT - ADS1115_CFG_DR_LENGTH + 1));
+    send(buffer);
 }
 /** Get comparator mode.
  * @return Current comparator mode
@@ -498,11 +517,11 @@ void ADS1115::setRate(uint8_t rate) {
  * @see ADS1115_CFG_COMP_MODE_BIT
  */
 bool ADS1115::getComparatorMode() {
-    setRegister(ADS1115_RA_CONFIG);
-    receive(buffer, 1);
-    buffer[0] &= (1 << ADS1115_CFG_COMP_MODE_BIT); // TODO: REWORK using functions below [!!!]
-    buffer[0] = buffer[0] >> ADS1115_CFG_COMP_MODE_BIT; // TODO: REWORK using functions below [!!!]
-    return (uint8_t)buffer[0];
+    reg = ADS1115_RA_CONFIG;
+    receive(buffer);
+    buffer[1] &= (1 << ADS1115_CFG_COMP_MODE_BIT); // TODO: REWORK using functions below [!!!]
+    buffer[1] = buffer[1] >> ADS1115_CFG_COMP_MODE_BIT; // TODO: REWORK using functions below [!!!]
+    return (uint8_t)buffer[1];
 }
 /** Set comparator mode.
  * @param mode New comparator mode
@@ -512,9 +531,13 @@ bool ADS1115::getComparatorMode() {
  * @see ADS1115_CFG_COMP_MODE_BIT
  */
 void ADS1115::setComparatorMode(bool mode) {
-    setRegister(ADS1115_RA_CONFIG);
-    buffer[0] = mode << ADS1115_CFG_COMP_MODE_BIT;
-    send(buffer, 1);
+    reg = ADS1115_RA_CONFIG;
+    // Clear bit
+    receive(buffer);
+    buffer[1] &= ~(1 << ADS1115_CFG_COMP_MODE_BIT); // TODO: REWORK using functions below [!!!]
+    // Set bit
+    buffer[1] |= (mode << ADS1115_CFG_COMP_MODE_BIT);
+    send(buffer);
 }
 /** Get comparator polarity setting.
  * @return Current comparator polarity setting
@@ -524,11 +547,11 @@ void ADS1115::setComparatorMode(bool mode) {
  * @see ADS1115_CFG_COMP_POL_BIT
  */
 bool ADS1115::getComparatorPolarity() {
-    setRegister(ADS1115_RA_CONFIG);
-    receive(buffer, 1);
-    buffer[0] &= (1 << ADS1115_CFG_COMP_POL_BIT); // TODO: REWORK using functions below [!!!]
-    buffer[0] = buffer[0] >> ADS1115_CFG_COMP_POL_BIT; // TODO: REWORK using functions below [!!!]
-    return (uint8_t)buffer[0];
+    reg = ADS1115_RA_CONFIG;   
+    receive(buffer);
+    buffer[1] &= (1 << ADS1115_CFG_COMP_POL_BIT); // TODO: REWORK using functions below [!!!]
+    buffer[1] = buffer[1] >> ADS1115_CFG_COMP_POL_BIT; // TODO: REWORK using functions below [!!!]
+    return (uint8_t)buffer[1];
 }
 /** Set comparator polarity setting.
  * @param polarity New comparator polarity setting
@@ -538,9 +561,13 @@ bool ADS1115::getComparatorPolarity() {
  * @see ADS1115_CFG_COMP_POL_BIT
  */
 void ADS1115::setComparatorPolarity(bool polarity) {
-    setRegister(ADS1115_RA_CONFIG);
-    buffer[0] = polarity << ADS1115_CFG_COMP_POL_BIT;
-    send(buffer, 1);
+    reg = ADS1115_RA_CONFIG;
+    // Clear bit
+    receive(buffer);
+    buffer[1] &= ~(1 << ADS1115_CFG_COMP_POL_BIT); // TODO: REWORK using functions below [!!!]
+    // Set bit
+    buffer[1] |= (polarity << ADS1115_CFG_COMP_POL_BIT);
+    send(buffer);
 }
 /** Get comparator latch enabled value.
  * @return Current comparator latch enabled value
@@ -550,11 +577,11 @@ void ADS1115::setComparatorPolarity(bool polarity) {
  * @see ADS1115_CFG_COMP_LAT_BIT
  */
 bool ADS1115::getComparatorLatchEnabled() {
-    setRegister(ADS1115_RA_CONFIG);
-    receive(buffer, 1);
-    buffer[0] &= (1 << ADS1115_CFG_COMP_LAT_BIT); // TODO: REWORK using functions below [!!!]
-    buffer[0] = buffer[0] >> ADS1115_CFG_COMP_LAT_BIT; // TODO: REWORK using functions below [!!!]
-    return (uint8_t)buffer[0];
+    reg = ADS1115_RA_CONFIG;
+    receive(buffer);
+    buffer[1] &= (1 << ADS1115_CFG_COMP_LAT_BIT); // TODO: REWORK using functions below [!!!]
+    buffer[1] = buffer[1] >> ADS1115_CFG_COMP_LAT_BIT; // TODO: REWORK using functions below [!!!]
+    return (uint8_t)buffer[1];
 }
 /** Set comparator latch enabled value.
  * @param enabled New comparator latch enabled value
@@ -564,9 +591,13 @@ bool ADS1115::getComparatorLatchEnabled() {
  * @see ADS1115_CFG_COMP_LAT_BIT
  */
 void ADS1115::setComparatorLatchEnabled(bool enabled) {
-    setRegister(ADS1115_RA_CONFIG);
-    buffer[0] = enabled << ADS1115_CFG_COMP_LAT_BIT;
-    send(buffer, 1);
+    reg = ADS1115_RA_CONFIG;
+    // Clear bit
+    receive(buffer);
+    buffer[1] &= ~(1 << ADS1115_CFG_COMP_LAT_BIT); // TODO: REWORK using functions below [!!!]
+    // Set bit
+    buffer[1] |= (enabled << ADS1115_CFG_COMP_LAT_BIT);
+    send(buffer);
 }
 /** Get comparator queue mode.
  * @return Current comparator queue mode
@@ -579,10 +610,10 @@ void ADS1115::setComparatorLatchEnabled(bool enabled) {
  * @see ADS1115_CFG_COMP_QUE_LENGTH
  */
 uint8_t ADS1115::getComparatorQueueMode() {
-    setRegister(ADS1115_RA_CONFIG);
-    receive(buffer, 1);
-    buffer[0] &= 0x03;
-    return (uint8_t)buffer[0];
+    reg = ADS1115_RA_CONFIG;
+    receive(buffer);
+    buffer[1] &= 0x03;
+    return (uint8_t)buffer[1];
 }
 /** Set comparator queue mode.
  * @param mode New comparator queue mode
@@ -595,9 +626,13 @@ uint8_t ADS1115::getComparatorQueueMode() {
  * @see ADS1115_CFG_COMP_QUE_LENGTH
  */
 void ADS1115::setComparatorQueueMode(uint8_t mode) {
-    setRegister(ADS1115_RA_CONFIG);
-    buffer[0] = mode;
-    send(buffer, 1);
+    reg = ADS1115_RA_CONFIG;
+    // Clear bit
+    receive(buffer);
+    buffer[1] &= ~(0x03);
+    // Set bit
+    buffer[1] |= mode;
+    send(buffer);
 }
 
 // *_THRESH registers
@@ -607,39 +642,38 @@ void ADS1115::setComparatorQueueMode(uint8_t mode) {
  * @see ADS1115_RA_LO_THRESH
  */
 int16_t ADS1115::getLowThreshold() {
-    setRegister(ADS1115_RA_LO_THRESH);
-    receive(buffer, 2);
-    return (buffer[0] << 8) | buffer[1];
+    reg = ADS1115_RA_LO_THRESH;
+    receive(buffer);
+    return ((buffer[0] << 8) | buffer[1]);
 }
 /** Set low threshold value.
  * @param threshold New low threshold value
  * @see ADS1115_RA_LO_THRESH
  */
 void ADS1115::setLowThreshold(int16_t threshold) {
-    setRegister(ADS1115_RA_LO_THRESH);
+    reg = ADS1115_RA_LO_THRESH;
     buffer[0] = (threshold >> 8);
-    buffer[1] = (threshold << 8);
-    send(buffer, 2);
+    buffer[1] = (threshold & 0xFF);
+    send(buffer);
 }
 /** Get high threshold value.
  * @return Current high threshold value
  * @see ADS1115_RA_HI_THRESH
  */
 int16_t ADS1115::getHighThreshold() {
-    setRegister(ADS1115_RA_HI_THRESH);
-    receive(buffer, 2);
-    return (buffer[0] << 8) | buffer[1];
-    return buffer[0];
+    reg = ADS1115_RA_HI_THRESH;
+    receive(buffer);
+    return ((buffer[0] << 8) | buffer[1]);
 }
 /** Set high threshold value.
  * @param threshold New high threshold value
  * @see ADS1115_RA_HI_THRESH
  */
 void ADS1115::setHighThreshold(int16_t threshold) {
-    setRegister(ADS1115_RA_HI_THRESH);
+    reg = ADS1115_RA_HI_THRESH;
     buffer[0] = (threshold >> 8);
-    buffer[1] = (threshold << 8);
-    send(buffer, 2);
+    buffer[1] = (threshold & 0xFF);
+    send(buffer);
 }
 
 /** Configures ALERT/RDY pin as a conversion ready pin.
@@ -647,13 +681,15 @@ void ADS1115::setHighThreshold(int16_t threshold) {
  *  of the low threshold register to '0'. COMP_POL and COMP_QUE bits will be set to '0'.
  *  Note: ALERT/RDY pin requires a pull up resistor.
  */
-void ADS1115::setConversionReadyPinMode() { // TODO: CHECK IF CLEAR BITS IS NEEDED FIRTS [!!!]
-    setRegister(ADS1115_RA_HI_THRESH);
+void ADS1115::setConversionReadyPinMode() {
+    reg = ADS1115_RA_HI_THRESH;
+    receive(buffer);
     buffer[0] = (1 << 8);
-    send(buffer, 1);
-    setRegister(ADS1115_RA_LO_THRESH);
+    send(buffer);
+    reg = ADS1115_RA_LO_THRESH;
+    receive(buffer);
     buffer[0] = 0x00;
-    send(buffer, 1);
+    send(buffer);
     setComparatorPolarity(0);
     setComparatorQueueMode(0);
 }
@@ -680,28 +716,20 @@ uint16_t getValueFromBits(uint16_t extractFrom, int high, int length) {
 /** Show all the config register settings (DEBUG)
  */
 uint16_t ADS1115::showConfigRegister() {
-    setRegister(ADS1115_RA_CONFIG);
-    receive(buffer, 2);
+    reg = ADS1115_RA_CONFIG;
+    receive(buffer);
     uint16_t configRegister = static_cast<uint16_t>((buffer[0] << 8) | buffer[1]);
     return configRegister;
 }
 
-// --- SET REGISTER ---
-// Set the register to R/W in the ADS1115
-bool ADS1115::setRegister(uint8_t reg){
-    // Send register to read to the device.
-    buffer[0] = reg;
-    if (!send(buffer, 1)){ return false; }
-
-    return true;
-}
 
 // --- GET VOLTAGE ---
 bool ADS1115::getConversion(int16_t &rawV){
-    setRegister(ADS1115_RA_CONVERSION);
+    triggerConversion();
 
+    reg = ADS1115_RA_CONVERSION;
     // Initiate the read sequence.
-    if (!receive(buffer, 2)) { return false; }
+    if (!receive(buffer)) { return false; }
     rawV = static_cast<int16_t>((buffer[0] << 8) | buffer[1]);
 
     return true;
@@ -715,13 +743,31 @@ bool ADS1115::voltage(int16_t &mV){
 }
 
 
-// --- SEND ---
-// Perform a send (write) request on a register.
-bool ADS1115::send(uint8_t* data, uint16_t len) {
+// --- SET REGISTER ---
+// Set the register to R/W in the ADS1115
+bool ADS1115::setRegister(uint8_t reg){
+    // Send register to read to the device.
+    buffer[0] = reg;
 #ifdef NODATE_I2C_ENABLED
 		// Use I2C send.
 		I2C::setSlaveTarget(i2c_device, address);
-		I2C::sendToSlave(i2c_device, data, len);
+		if(!I2C::sendToSlave(i2c_device, buffer, 1)) { return false; }
+#endif
+
+    return true;
+}
+
+
+// --- SEND ---
+// Perform a send (write) request on a register.
+bool ADS1115::send(uint8_t* data) {
+    data[2] = buffer[1];
+    data[1] = buffer[0];
+    data[0] = reg;
+#ifdef NODATE_I2C_ENABLED
+		// Use I2C send.
+		I2C::setSlaveTarget(i2c_device, address);
+		I2C::sendToSlave(i2c_device, data, 3);
 #endif
 	
 	return true;
@@ -729,10 +775,11 @@ bool ADS1115::send(uint8_t* data, uint16_t len) {
 
 
 // --- RECEIVE ---
-bool ADS1115::receive(uint8_t* data, uint16_t len) {
+bool ADS1115::receive(uint8_t* data) {
+    setRegister(reg);
 #ifdef NODATE_I2C_ENABLED
 		// Use I2C receive.
-		I2C::receiveFromSlave(i2c_device, len, data);
+		I2C::receiveFromSlave(i2c_device, 2, data);
 #endif
 	
 	return true;
@@ -741,7 +788,8 @@ bool ADS1115::receive(uint8_t* data, uint16_t len) {
 
 // --- TRANSCEIVE ---
 // Combined send/receive.
-bool ADS1115::transceive(uint8_t* txdata, uint16_t txlen, uint8_t* rxdata, uint16_t rxlen) {
+bool ADS1115::transceive(uint8_t* txdata, uint16_t txlen, uint8_t* rxdata, uint16_t rxlen) { // TODO: Implement regarding `setRegister`
+    setRegister(reg);
 #ifdef NODATE_I2C_ENABLED
 		// Use I2C send and receive.
 		I2C::setSlaveTarget(i2c_device, address);
