@@ -100,7 +100,13 @@ int main () {
 	// Create ADS1115 ADC instance, on the first I2C bus, slave address 0x48 (address pin low – GND)
     // Note that, depending on the connection of the ADS1115 addr. pin, the slave address changes – datasheet.
 	ADS1115 adc(I2C_1, ADS1115_DEFAULT_ADDRESS);
-	adc.initialize();
+	
+	// Initialize the ADC IC.
+	// This fetches the calibration factors from the ADC device.
+	if (!adc.initialize()) {
+		printf("ADC init failed!\n");
+		while (1) { }
+	}
 
 	if (!adc.isReady()) {
 		ch = 'n';
@@ -113,13 +119,6 @@ int main () {
 	
 	Timer timer;
 	timer.delay(1000);
-	
-	// Initialize the ADC IC.
-	// This fetches the calibration factors from the ADC device.
-	if (!adc.initialize()) {
-		printf("ADC init failed!\n");
-		while (1) { }
-	}
 
 	if (!adc.testConnection()) {
 		printf("ADC connection failed!\n");
@@ -153,7 +152,7 @@ int main () {
 	
 	while (1){
 	GPIO::write(led_port, led_pin, GPIO_LEVEL_HIGH);
-	// Get raw temperature.
+	// Get raw voltage.
 	timer.delay(500);
 	GPIO::write(led_port, led_pin, GPIO_LEVEL_LOW);
 	int16_t raw;
